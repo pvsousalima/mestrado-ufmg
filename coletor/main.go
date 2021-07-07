@@ -19,7 +19,7 @@ type Author struct {
 func main() {
 
 	// scrapped authors
-	authors := []Author{}
+	network := []Author{}
 
 	// current author
 	author := Author{}
@@ -27,8 +27,10 @@ func main() {
 	// filtering unique collaboration DBLP ids
 	set := make(map[string]struct{})
 
+	// 47/8013
+
 	// open a local csv to create a dataset
-	clientsFile, err := os.OpenFile("clients.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	clientsFile, err := os.OpenFile(os.Args[1]+".csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +52,7 @@ func main() {
 	*/
 	c.Limit(&colly.LimitRule{
 		DomainGlob:  "*",
-		Parallelism: 2,
+		Parallelism: 10,
 		RandomDelay: 5 * time.Second,
 	})
 
@@ -59,16 +61,10 @@ func main() {
 		author.Name = e.Text
 	})
 
-	// scraps the Pid property of the XML
-	// it represents DBLP's registered id
+	/* scraps the Pid property of the XML it represents DBLP's registered id */
 	c.OnXML("/dblpperson/@pid", func(e *colly.XMLElement) {
 		author.Pid = e.Text
 	})
-
-	// On every a element which has href attribute call callback
-	// c.OnXML("//dblpperson/r/article", func(e *colly.XMLElement) {
-	// 	author.Citations = append(author.Citations, e.Text)
-	// })
 
 	/* Scrapping all correlated Pids from all citations in which the current author
 	is mentioned, starts to create the links from authors to one another */
@@ -99,11 +95,9 @@ func main() {
 
 		// add property of an array of strings of collaborators
 		author.CollaboratorsPids = strings.Join(keys[:], ",")
-		authors = append(authors, author)
 
-		if err != nil {
-			panic(err)
-		}
+		// add author to the network
+		network = append(network, author)
 
 		// reset properties for the next XML file
 		set = make(map[string]struct{})
@@ -116,14 +110,15 @@ func main() {
 	})
 
 	// Start scraping
-	c.Visit("https://dblp.uni-trier.de/pid/47/8013.xml")
-	// c.Visit("https://dblp.uni-trier.de/pid/176/9894.xml")
+	// c.Visit("https://dblp.uni-trier.de/pid/" + os.Args[1] + ".xml")
+	c.Visit("https://dblp.uni-trier.de/pid/25/3419.xml")
+	// c.Visit("https://dblp.uni-trier.de/pid/91/2760.xml")
 
 	// synchronize goroutines
 	c.Wait()
 
 	// dump scrapped authors to a csv dataset
-	err = gocsv.MarshalFile(&authors, clientsFile)
+	err = gocsv.MarshalFile(&network, clientsFile)
 
-	fmt.Println(authors)
+	fmt.Println(network)
 }
